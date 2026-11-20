@@ -1,11 +1,18 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Star, Clock, Flame, Plus, Minus, Sparkles, Check } from 'lucide-react';
+import { X, Star, Clock, Flame, Plus, Minus, Sparkles, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { CAFE_INFO } from '../data/menuData';
 
 export const FoodDetailModal: React.FC = () => {
-  const { selectedDetailItem, setSelectedDetailItem, addToCart, updateQuantity, getItemQuantity } = useCart();
+  const {
+    selectedDetailItem,
+    setSelectedDetailItem,
+    addToCart,
+    updateQuantity,
+    getItemQuantity,
+    openCart,
+  } = useCart();
 
   // Lock body scroll cleanly while detail modal is open
   useEffect(() => {
@@ -16,6 +23,11 @@ export const FoodDetailModal: React.FC = () => {
       };
     }
   }, [selectedDetailItem]);
+
+  const handleGoToCart = () => {
+    setSelectedDetailItem(null);
+    openCart();
+  };
 
   const item = selectedDetailItem;
   const quantity = item ? getItemQuantity(item.id) : 0;
@@ -218,11 +230,12 @@ export const FoodDetailModal: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => setSelectedDetailItem(null)}
-                    className="px-3 py-2 rounded-2xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-bold transition flex items-center gap-1"
+                    onClick={handleGoToCart}
+                    className="px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                    aria-label="View Cart"
                   >
-                    <Check className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Done</span>
+                    <ShoppingBag className="w-3.5 h-3.5 text-emerald-100" />
+                    <span>View Cart</span>
                   </button>
                 </div>
               )}

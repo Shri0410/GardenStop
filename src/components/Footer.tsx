@@ -30,14 +30,14 @@ export const Footer: React.FC = () => {
           <div className="space-y-2">
             <Logo size="lg" variant="dark" />
             <p className="text-xs sm:text-sm text-stone-400 max-w-md leading-relaxed mt-1">
-              Farm-fresh sourdough burgers, wood-fired artisanal pizzas, and single-origin cold brews—crafted fresh on order and delivered to your doorstep.
+              100% Pure Veg stone-baked pizzas, grilled sandwiches, crispy burgers, thick shakes, cold coffee, fries, noodles, and hot desserts—crafted fresh on order.
             </p>
             
             {/* Value Badges */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-300 text-[11px] font-semibold border border-emerald-500/20">
                 <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-                <span>100% Organic Flours</span>
+                <span>100% Pure Veg</span>
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-300 text-[11px] font-semibold border border-amber-500/20">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />

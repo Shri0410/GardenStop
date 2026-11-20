@@ -29,7 +29,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search truffle burger, sourdough pizza, iced latte..."
+            placeholder="Search sweet corn pizza, paneer sandwich, cold coffee..."
             className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-white border border-stone-200/90 text-stone-black text-xs sm:text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest shadow-sm transition"
           />
           {searchQuery && (

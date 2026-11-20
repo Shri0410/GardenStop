@@ -25,12 +25,7 @@ export function buildWhatsAppOrderMessage({
     ? `${customer.address}${customer.landmark ? ` (Near ${customer.landmark})` : ''}`
     : 'In-store Pickup at Garden Stop Counter';
 
-  const paymentLabel =
-    customer.paymentMethod === 'cod'
-      ? (isDelivery ? 'Cash on Delivery' : 'Cash at Counter')
-      : customer.paymentMethod === 'upi'
-      ? (isDelivery ? 'UPI on Delivery' : 'UPI QR at Counter')
-      : 'Card / Cash at Counter';
+  const paymentLabel = isDelivery ? '💵 Cash on Delivery (COD)' : '💵 Cash at Counter';
 
   // Format order items
   const itemsText = cartItems
@@ -48,6 +43,12 @@ export function buildWhatsAppOrderMessage({
   message += `*Phone:* ${customer.phone}\n`;
   if (isDelivery) {
     message += `*Address:* ${addressText}\n`;
+    if (customer.locationUrl && customer.locationUrl.trim()) {
+      message += `📍 *Location Link:* ${customer.locationUrl.trim()}\n`;
+    } else if (customer.address && customer.address.trim()) {
+      const queryAddress = `${customer.address.trim()}${customer.landmark ? ', ' + customer.landmark.trim() : ''}`;
+      message += `📍 *Location Link:* https://maps.google.com/?q=${encodeURIComponent(queryAddress)}\n`;
+    }
   } else {
     message += `*Pickup At:* Garden Stop Cafe Counter (Shop 4, Botanical Pavilion)\n`;
   }

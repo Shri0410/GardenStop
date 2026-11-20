@@ -183,7 +183,7 @@ export const Logo = forwardRef<HTMLDivElement, LogoProps>(({
                 isDark ? 'text-emerald-300/80' : 'text-stone-500'
               }`}
             >
-              Botanical Kitchen & Cafe
+              Pure Veg • Kitchen & Cafe
             </span>
           </div>
         )}

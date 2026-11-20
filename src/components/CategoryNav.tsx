@@ -6,51 +6,49 @@ import { CATEGORIES } from '../data/menuData';
 interface CategoryNavProps {
   activeCategory: CategoryId;
   setActiveCategory: (cat: CategoryId) => void;
-  categoryCounts: Record<CategoryId, number>;
+  categoryCounts?: Record<CategoryId, number>;
 }
 
 export const CategoryNav: React.FC<CategoryNavProps> = ({
   activeCategory,
   setActiveCategory,
-  categoryCounts,
 }) => {
   return (
-    <div className="sticky top-[69px] sm:top-[74px] z-20 bg-[#FBF9F5]/95 backdrop-blur-md py-2.5 border-b border-stone-200/50 shadow-sm">
+    <div className="sticky top-[61px] sm:top-[65px] z-20 bg-[#FBF9F5]/95 backdrop-blur-md py-2.5 border-b border-stone-200/50 shadow-xs">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth py-1 px-1">
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat.id;
-            const count = categoryCounts[cat.id] ?? 0;
 
             return (
-              <button
+              <motion.button
                 key={cat.id}
+                type="button"
                 onClick={() => setActiveCategory(cat.id)}
-                className={`relative px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shrink-0 ${
+                whileTap={{ scale: 0.92 }}
+                title={cat.name}
+                aria-label={cat.name}
+                aria-pressed={isActive}
+                className={`relative shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden transition-all duration-200 focus:outline-none ${
                   isActive
-                    ? 'text-white'
-                    : 'text-stone-700 bg-white/80 hover:bg-white hover:text-stone-900 border border-stone-200/80 shadow-xs'
+                    ? 'ring-2.5 ring-forest ring-offset-2 ring-offset-[#FBF9F5] shadow-md scale-105'
+                    : 'border border-stone-200/90 shadow-2xs opacity-80 hover:opacity-100 hover:scale-[1.02]'
                 }`}
               >
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 hover:scale-105"
+                  loading="lazy"
+                />
                 {isActive && (
                   <motion.div
-                    layoutId="activeCategoryPill"
-                    className="absolute inset-0 bg-forest rounded-full shadow-md -z-0"
-                    transition={{ type: 'spring', bounce: 0.18, duration: 0.35 }}
+                    layoutId="activeCategoryIndicator"
+                    className="absolute inset-0 border-2 border-forest rounded-2xl pointer-events-none"
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.3 }}
                   />
                 )}
-                <span className="relative z-10 text-sm leading-none">{cat.icon}</span>
-                <span className="relative z-10">{cat.name}</span>
-                <span
-                  className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                    isActive
-                      ? 'bg-emerald-700 text-emerald-100'
-                      : 'bg-stone-100 text-stone-500'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
+              </motion.button>
             );
           })}
         </div>

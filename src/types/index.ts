@@ -1,9 +1,10 @@
-export type CategoryId = 'all' | 'burgers' | 'pizzas' | 'coffee' | 'starters' | 'desserts';
+export type CategoryId = 'all' | 'pizzas' | 'sandwiches' | 'burgers' | 'coffee' | 'fries' | 'other';
 
 export interface Category {
   id: CategoryId;
   name: string;
   icon: string;
+  image: string;
   count?: number;
 }
 
@@ -41,6 +42,7 @@ export interface CustomerInfo {
   notes: string;
   orderType: OrderType;
   paymentMethod: PaymentMethod;
+  locationUrl?: string;
 }
 
 export interface PromoCode {

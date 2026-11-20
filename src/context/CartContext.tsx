@@ -85,7 +85,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           landmark: parsed.landmark || '',
           notes: '',
           orderType: 'delivery',
-          paymentMethod: parsed.paymentMethod || 'upi',
+          paymentMethod: 'cod',
+          locationUrl: parsed.locationUrl || '',
         };
       }
     } catch {
@@ -98,7 +99,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       landmark: '',
       notes: '',
       orderType: 'delivery',
-      paymentMethod: 'upi',
+      paymentMethod: 'cod',
+      locationUrl: '',
     };
   });
 
@@ -128,12 +130,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         address: customerInfo.address,
         landmark: customerInfo.landmark,
         paymentMethod: customerInfo.paymentMethod,
+        locationUrl: customerInfo.locationUrl,
       };
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(toSave));
     } catch {
       // ignore
     }
-  }, [customerInfo.name, customerInfo.phone, customerInfo.address, customerInfo.landmark, customerInfo.paymentMethod]);
+  }, [customerInfo.name, customerInfo.phone, customerInfo.address, customerInfo.landmark, customerInfo.paymentMethod, customerInfo.locationUrl]);
 
   const updateCustomerField = <K extends keyof CustomerInfo>(field: K, value: CustomerInfo[K]) => {
     setCustomerInfo(prev => ({ ...prev, [field]: value }));

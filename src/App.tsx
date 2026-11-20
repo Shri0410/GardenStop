@@ -25,11 +25,12 @@ const MainMenu: React.FC = () => {
   const categoryCounts = useMemo(() => {
     const counts: Record<CategoryId, number> = {
       all: 0,
-      burgers: 0,
       pizzas: 0,
+      sandwiches: 0,
+      burgers: 0,
       coffee: 0,
-      starters: 0,
-      desserts: 0,
+      fries: 0,
+      other: 0,
     };
 
     FOOD_ITEMS.forEach(item => {
