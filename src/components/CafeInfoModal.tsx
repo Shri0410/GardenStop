@@ -6,7 +6,7 @@ import { CAFE_INFO } from '../data/menuData';
 import { Logo } from './Logo';
 
 export const CafeInfoModal: React.FC = () => {
-  const { isInfoModalOpen, setIsInfoModalOpen } = useCart();
+  const { isInfoModalOpen, setIsInfoModalOpen, isStoreOpen, storeStatus } = useCart();
 
   return (
     <AnimatePresence>
@@ -86,16 +86,16 @@ export const CafeInfoModal: React.FC = () => {
 
               {/* Hours */}
               <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-stone-100">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5 text-emerald-700" />
+                <div className={`w-9 h-9 rounded-xl ${isStoreOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'} flex items-center justify-center shrink-0`}>
+                  <Clock className={`w-5 h-5 ${isStoreOpen ? 'text-emerald-700' : 'text-rose-700'}`} />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-forest uppercase tracking-wider">Kitchen Timings</h4>
                   <p className="text-xs text-stone-700 mt-0.5 font-medium">
-                    {CAFE_INFO.timings}
+                    11:30 AM – 11:30 PM (Daily)
                   </p>
-                  <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                    ● Currently Accepting Orders
+                  <p className={`text-[11px] font-semibold mt-0.5 ${isStoreOpen ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {isStoreOpen ? '● Currently Accepting Orders' : '● Currently Closed (Opens at 11:30 AM)'}
                   </p>
                 </div>
               </div>

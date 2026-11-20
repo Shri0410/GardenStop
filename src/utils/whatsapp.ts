@@ -86,3 +86,44 @@ export function generateWhatsAppLink(
   }
   return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
 }
+
+export interface CelebrationBookingParams {
+  name: string;
+  phone: string;
+  date: string;
+  timeSlot: string;
+  guestCount: string;
+  specialRequests?: string;
+}
+
+export function buildCelebrationBookingMessage(params: CelebrationBookingParams): string {
+  let message = `🎉 *BIRTHDAY CELEBRATION BOOKING* 🎉\n`;
+  message += `*Garden Stop • Pure Veg Kitchen & Cafe*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `👤 *Name:* ${params.name}\n`;
+  message += `📞 *WhatsApp:* ${params.phone}\n`;
+  message += `📅 *Event Date:* ${params.date}\n`;
+  if (params.timeSlot) {
+    message += `⏰ *Time Slot:* ${params.timeSlot}\n`;
+  }
+  message += `👥 *Guests Count:* ${params.guestCount}\n`;
+  if (params.specialRequests && params.specialRequests.trim()) {
+    message += `🎂 *Special Requests / Notes:*\n${params.specialRequests.trim()}\n`;
+  }
+  message += `━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `✨ Please confirm availability & celebration arrangements. Thank you!`;
+
+  return message;
+}
+
+export function generateCelebrationWhatsAppLink(
+  phoneNumber: string,
+  params: CelebrationBookingParams
+): string {
+  const message = buildCelebrationBookingMessage(params);
+  let cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+  if (cleanNumber.length === 10) {
+    cleanNumber = `91${cleanNumber}`;
+  }
+  return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
+}

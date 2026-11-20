@@ -4,20 +4,51 @@ import { useCart } from '../context/CartContext';
 import { CAFE_INFO } from '../data/menuData';
 import { Logo } from './Logo';
 
-export const Header: React.FC = () => {
-  const { totalCount, openCart, setIsInfoModalOpen } = useCart();
+export const Header: React.FC = React.memo(() => {
+  const { totalCount, openCart, setIsInfoModalOpen, isStoreOpen, storeStatus } = useCart();
+  const headerRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    if (!headerRef.current) return;
+    const updateHeight = () => {
+      if (headerRef.current) {
+        document.documentElement.style.setProperty(
+          '--header-height',
+          `${headerRef.current.offsetHeight}px`
+        );
+      }
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(headerRef.current);
+    window.addEventListener('resize', updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FBF9F5]/95 backdrop-blur-md border-b border-stone-200/70 transition-all shadow-xs">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-30 bg-[#FBF9F5]/95 backdrop-blur-md border-b border-stone-200/70 transition-all shadow-xs"
+    >
       <div className="max-w-4xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between">
         
         {/* Brand identity with aesthetic Logo */}
         <div className="flex items-center gap-2">
           <Logo id="navbar-brand-logo" size="md" variant="header" />
-          <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-300/60 items-center gap-1.5 shadow-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            Open
-          </span>
+          {isStoreOpen ? (
+            <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-300/60 items-center gap-1.5 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              Open (11:30 AM - 11:30 PM)
+            </span>
+          ) : (
+            <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 items-center gap-1.5 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+              Closed (Opens 11:30 AM)
+            </span>
+          )}
         </div>
 
         {/* Action Controls */}
@@ -62,10 +93,12 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Live Status Pill Sub-strip for mobile */}
-      <div className="bg-forest/[0.03] border-t border-stone-100 py-1 px-4 text-center">
+      <div className={`${isStoreOpen ? 'bg-forest/[0.03]' : 'bg-rose-50/70 border-rose-100'} border-t border-stone-100 py-1 px-4 text-center transition-colors`}>
         <p className="text-[11px] text-stone-600 flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-          <span className="font-medium text-forest">{CAFE_INFO.statusText}</span>
+          <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-emerald-500' : 'bg-rose-500'} inline-block`}></span>
+          <span className={`font-semibold ${isStoreOpen ? 'text-forest' : 'text-rose-800'}`}>
+            {isStoreOpen ? 'Open Now • Accepting Orders (11:30 AM - 11:30 PM)' : 'Closed • Online Orders Open at 11:30 AM'}
+          </span>
           <span className="text-stone-300">•</span>
           <span className="text-stone-500">Free delivery over {CAFE_INFO.currency}{CAFE_INFO.freeDeliveryThreshold.toFixed(0)}</span>
           <span className="text-stone-300 hidden sm:inline">•</span>
@@ -74,4 +107,4 @@ export const Header: React.FC = () => {
       </div>
     </header>
   );
-};
+});

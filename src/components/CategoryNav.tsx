@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { CategoryId } from '../types';
 import { CATEGORIES } from '../data/menuData';
 
@@ -9,50 +8,74 @@ interface CategoryNavProps {
   categoryCounts?: Record<CategoryId, number>;
 }
 
-export const CategoryNav: React.FC<CategoryNavProps> = ({
+export const CategoryNav: React.FC<CategoryNavProps> = React.memo(({
   activeCategory,
   setActiveCategory,
 }) => {
   return (
-    <div className="sticky top-[61px] sm:top-[65px] z-20 bg-[#FBF9F5]/95 backdrop-blur-md py-2.5 border-b border-stone-200/50 shadow-xs">
+    <div
+      className="sticky z-20 bg-white/95 backdrop-blur-md border-b border-stone-200/60 shadow-2xs"
+      style={{ top: 'var(--header-height, 86px)' }}
+    >
       <div className="max-w-4xl mx-auto px-4">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth py-1 px-1">
+        <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar scroll-smooth pt-2 pb-1.5 px-1">
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat.id;
 
             return (
-              <motion.button
+              <button
                 key={cat.id}
                 type="button"
                 onClick={() => setActiveCategory(cat.id)}
-                whileTap={{ scale: 0.92 }}
                 title={cat.name}
                 aria-label={cat.name}
                 aria-pressed={isActive}
-                className={`relative shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden transition-all duration-200 focus:outline-none ${
-                  isActive
-                    ? 'ring-2.5 ring-forest ring-offset-2 ring-offset-[#FBF9F5] shadow-md scale-105'
-                    : 'border border-stone-200/90 shadow-2xs opacity-80 hover:opacity-100 hover:scale-[1.02]'
-                }`}
+                className="group flex flex-col items-center shrink-0 cursor-pointer focus:outline-none select-none transition-transform duration-200"
               >
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 hover:scale-105"
-                  loading="lazy"
-                />
-                {isActive && (
-                  <motion.div
-                    layoutId="activeCategoryIndicator"
-                    className="absolute inset-0 border-2 border-forest rounded-2xl pointer-events-none"
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.3 }}
-                  />
-                )}
-              </motion.button>
+                {/* 1. Food PNG Image with Transparent Background */}
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                  <picture>
+                    <source srcSet={cat.image.replace(/\.(png|jpg)$/, '.webp')} type="image/webp" />
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      width={80}
+                      height={80}
+                      decoding="async"
+                      className={`w-full h-full object-contain pointer-events-none drop-shadow-sm transition-transform duration-200 ease-out ${
+                        isActive
+                          ? 'scale-105 -translate-y-0.5 group-hover:scale-110'
+                          : 'group-hover:scale-110 group-hover:-translate-y-0.5'
+                      }`}
+                      loading="eager"
+                    />
+                  </picture>
+                </div>
+
+                {/* 2. Category Name Text */}
+                <span
+                  className={`mt-1 text-xs sm:text-sm tracking-tight text-center whitespace-nowrap transition-colors duration-200 ${
+                    isActive
+                      ? 'font-extrabold text-stone-900'
+                      : 'font-medium text-stone-500 group-hover:text-stone-800'
+                  }`}
+                >
+                  {cat.name}
+                </span>
+
+                {/* 3. Red Active Indicator Line */}
+                <div className="relative w-full h-[3px] mt-1.5 flex justify-center">
+                  {isActive ? (
+                    <div className="absolute inset-x-0 h-[3px] bg-[#E23744] rounded-full transition-all" />
+                  ) : (
+                    <div className="h-[3px] w-full bg-transparent" />
+                  )}
+                </div>
+              </button>
             );
           })}
         </div>
       </div>
     </div>
   );
-};
+});

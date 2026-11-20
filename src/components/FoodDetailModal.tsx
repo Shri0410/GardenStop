@@ -12,6 +12,8 @@ export const FoodDetailModal: React.FC = () => {
     updateQuantity,
     getItemQuantity,
     openCart,
+    isStoreOpen,
+    storeStatus,
   } = useCart();
 
   // Lock body scroll cleanly while detail modal is open
@@ -143,7 +145,7 @@ export const FoodDetailModal: React.FC = () => {
                 <div className="p-2 rounded-2xl bg-white border border-stone-200/80 text-center shadow-2xs">
                   <Clock className="w-3.5 h-3.5 text-forest mx-auto mb-1" />
                   <span className="text-[9px] text-stone-400 block uppercase font-bold">Prep Time</span>
-                  <span className="text-[11px] font-semibold text-stone-800">{item.prepTime || '10-15 mins'}</span>
+                  <span className="text-[11px] font-semibold text-stone-800">{item.prepTime || '30-35 mins'}</span>
                 </div>
 
                 <div className="p-2 rounded-2xl bg-white border border-stone-200/80 text-center shadow-2xs">
@@ -178,6 +180,14 @@ export const FoodDetailModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Store Closed Warning Banner */}
+              {!isStoreOpen && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Online ordering is closed. Kitchen operates daily <strong>11:30 AM to 11:30 PM</strong>.</span>
+                </div>
+              )}
+
               {/* Botanical Freshness Guarantee */}
               <div className="p-2.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/60 text-[10px] sm:text-[11px] text-emerald-800 flex items-center gap-2">
                 <span className="text-sm">🍃</span>
@@ -195,7 +205,16 @@ export const FoodDetailModal: React.FC = () => {
                 </span>
               </div>
 
-              {quantity === 0 ? (
+              {!isStoreOpen && quantity === 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 max-w-[210px] sm:max-w-xs px-4 py-2.5 sm:py-3 rounded-2xl bg-stone-100 border border-stone-200 text-stone-400 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 cursor-not-allowed shadow-none"
+                >
+                  <Clock className="w-4 h-4 text-stone-400" />
+                  <span>Closed (Opens 11:30 AM)</span>
+                </button>
+              ) : quantity === 0 ? (
                 <button
                   type="button"
                   onClick={() => addToCart(item)}

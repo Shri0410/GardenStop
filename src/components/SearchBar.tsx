@@ -9,7 +9,7 @@ interface SearchBarProps {
   totalResults: number;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
+export const SearchBar: React.FC<SearchBarProps> = React.memo(({
   searchQuery,
   setSearchQuery,
   vegOnly,
@@ -69,4 +69,4 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       </div>
     </div>
   );
-};
+});

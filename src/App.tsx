@@ -1,22 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { CategoryId } from './types';
 import { FOOD_ITEMS, CATEGORIES } from './data/menuData';
-import { CartProvider } from './context/CartContext';
+import { CartProvider, useCart } from './context/CartContext';
 import { Header } from './components/Header';
 import { PromoHero } from './components/PromoHero';
 import { SearchBar } from './components/SearchBar';
 import { CategoryNav } from './components/CategoryNav';
 import { FoodCard } from './components/FoodCard';
 import { FloatingCartPill } from './components/FloatingCartPill';
-import { CartDrawer } from './components/CartDrawer';
-import { FoodDetailModal } from './components/FoodDetailModal';
-import { CafeInfoModal } from './components/CafeInfoModal';
-import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { Footer } from './components/Footer';
 import { CinematicLoadingScreen } from './components/CinematicLoadingScreen';
 import { Sparkles, UtensilsCrossed } from 'lucide-react';
 
+// Lazy-load heavy interactive modals on demand for code splitting & minimal initial bundle
+const CartDrawer = lazy(() => import('./components/CartDrawer').then(m => ({ default: m.CartDrawer })));
+const FoodDetailModal = lazy(() => import('./components/FoodDetailModal').then(m => ({ default: m.FoodDetailModal })));
+const CafeInfoModal = lazy(() => import('./components/CafeInfoModal').then(m => ({ default: m.CafeInfoModal })));
+const OrderSuccessModal = lazy(() => import('./components/OrderSuccessModal').then(m => ({ default: m.OrderSuccessModal })));
+
 const MainMenu: React.FC = () => {
+  const { isCartOpen, selectedDetailItem, isInfoModalOpen, orderSuccessData } = useCart();
   const [activeCategory, setActiveCategory] = useState<CategoryId>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [vegOnly, setVegOnly] = useState(false);
@@ -43,7 +46,6 @@ const MainMenu: React.FC = () => {
 
     return counts;
   }, [vegOnly]);
-
   // Filter food items
   const filteredItems = useMemo(() => {
     return FOOD_ITEMS.filter(item => {
@@ -71,6 +73,17 @@ const MainMenu: React.FC = () => {
     });
   }, [activeCategory, vegOnly, searchQuery]);
 
+  // Progressive hydration: render above-the-fold items immediately, then populate the rest
+  const [renderLimit, setRenderLimit] = useState(8);
+
+  useEffect(() => {
+    if (renderLimit >= filteredItems.length) return;
+    const timer = setTimeout(() => {
+      setRenderLimit(filteredItems.length);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [filteredItems.length, renderLimit]);
+
   return (
     <>
       {/* Cinematic Website Intro Loading Screen with Signature Logo Flight Transition */}
@@ -80,7 +93,6 @@ const MainMenu: React.FC = () => {
       <div
         id="main-website-content"
         className="min-h-screen bg-[#FBF9F5] text-[#1C1917] flex flex-col font-sans selection:bg-sage/20 selection:text-forest"
-        style={{ opacity: 0 }}
       >
         {/* 1. Header with Live Status & Info Modal Trigger */}
         <Header />
@@ -131,7 +143,7 @@ const MainMenu: React.FC = () => {
           {/* 2-Column Responsive Grid */}
           {filteredItems.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4.5">
-              {filteredItems.map(item => (
+              {filteredItems.slice(0, renderLimit).map(item => (
                 <FoodCard key={item.id} item={item} />
               ))}
             </div>
@@ -169,21 +181,23 @@ const MainMenu: React.FC = () => {
 
     </div>
 
-    {/* Top-level Overlays, Drawers & Modals (Outside transformed container for flawless viewport alignment) */}
+    {/* Top-level Overlays, Drawers & Modals (Lazy Loaded on demand for minimal initial bundle) */}
     {/* 7. Floating Bottom Cart Pill */}
     <FloatingCartPill />
 
-    {/* 8. Slide-up Interactive Bottom Sheet Cart Drawer */}
-    <CartDrawer />
+    <Suspense fallback={null}>
+      {/* 8. Slide-up Interactive Bottom Sheet Cart Drawer */}
+      {isCartOpen && <CartDrawer />}
 
-    {/* 9. Rich Food Item Detail Modal */}
-    <FoodDetailModal />
+      {/* 9. Rich Food Item Detail Modal */}
+      {selectedDetailItem && <FoodDetailModal />}
 
-    {/* 10. Cafe Info & Location Modal */}
-    <CafeInfoModal />
+      {/* 10. Cafe Info & Location Modal */}
+      {isInfoModalOpen && <CafeInfoModal />}
 
-    {/* 11. Order Success & WhatsApp Dispatch Modal */}
-    <OrderSuccessModal />
+      {/* 11. Order Success & WhatsApp Dispatch Modal */}
+      {orderSuccessData && <OrderSuccessModal />}
+    </Suspense>
     </>
   );
 };

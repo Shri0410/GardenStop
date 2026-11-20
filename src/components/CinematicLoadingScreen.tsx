@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import gsap from 'gsap';
 import { Logo } from './Logo';
 
 interface CinematicLoadingScreenProps {
@@ -36,16 +35,18 @@ export const CinematicLoadingScreen: React.FC<CinematicLoadingScreenProps> = ({
     };
   }, []);
 
-  // 2. Realistic, buttery smooth progress counter (0 -> 100%)
+  // 2. Luxurious, buttery smooth cinematic progress counter (0 -> 100%)
   useEffect(() => {
     let current = 0;
     const interval = setInterval(() => {
-      const increment = current < 35 ? 4 : current < 75 ? 3 : current < 92 ? 2 : 1;
-      current = Math.min(100, current + increment);
-      setProgress(current);
+      // Natural progression reaching 100% in ~1.8 seconds so user can enjoy the experience
+      const increment = current < 30 ? 2 : current < 70 ? 1.4 : current < 90 ? 1.1 : 0.8;
+      current = Math.min(100, Math.round((current + increment) * 10) / 10);
+      const rounded = Math.floor(current);
+      setProgress(rounded);
 
       for (let i = PHRASES.length - 1; i >= 0; i--) {
-        if (current >= PHRASES[i].threshold) {
+        if (rounded >= PHRASES[i].threshold) {
           setStatusText(PHRASES[i].text);
           break;
         }
@@ -54,7 +55,7 @@ export const CinematicLoadingScreen: React.FC<CinematicLoadingScreenProps> = ({
       if (current >= 100) {
         clearInterval(interval);
       }
-    }, 28); // ~1.5s total time
+    }, 25);
 
     return () => clearInterval(interval);
   }, []);
@@ -65,12 +66,12 @@ export const CinematicLoadingScreen: React.FC<CinematicLoadingScreenProps> = ({
 
     const timeout = setTimeout(() => {
       executeLogoFlight();
-    }, 140);
+    }, 220);
 
     return () => clearTimeout(timeout);
   }, [progress]);
 
-  const executeLogoFlight = () => {
+  const executeLogoFlight = async () => {
     const navLogo = document.getElementById('navbar-brand-logo');
     const flightLogo = logoWrapperRef.current;
     const progressEl = progressControlsRef.current;
@@ -85,6 +86,9 @@ export const CinematicLoadingScreen: React.FC<CinematicLoadingScreenProps> = ({
       if (onComplete) onComplete();
       return;
     }
+
+    // Dynamic import of GSAP on demand: prevents 70KB GSAP from blocking initial parse
+    const { default: gsap } = await import('gsap');
 
     // Measure target and source rectangles dynamically
     const targetRect = navLogo.getBoundingClientRect();
@@ -136,41 +140,31 @@ export const CinematicLoadingScreen: React.FC<CinematicLoadingScreenProps> = ({
       x: deltaX,
       y: deltaY,
       scale: scale,
-      duration: 1.15,
-      ease: 'power4.inOut',
+      duration: 0.8,
+      ease: 'power3.inOut',
       transformOrigin: 'top left',
-    }, 0.08);
+    }, 0.05);
 
     // Step 3: Seamless crossfade handoff as flight touches destination
     tl.to(navLogo, {
       opacity: 1,
-      duration: 0.22,
+      duration: 0.2,
       ease: 'power2.out',
-    }, 0.95);
+    }, 0.7);
 
     tl.to(flightLogo, {
       opacity: 0,
-      duration: 0.18,
+      duration: 0.15,
       ease: 'power2.out',
-    }, 1.05);
+    }, 0.75);
 
     // Step 4: Dissolve the dark backdrop curtain smoothly
     if (backdropEl) {
       tl.to(backdropEl, {
         opacity: 0,
-        duration: 0.85,
+        duration: 0.55,
         ease: 'power2.inOut',
-      }, 0.25);
-    }
-
-    // Step 5: Gracefully lift and reveal website content
-    if (websiteEl) {
-      tl.fromTo(
-        websiteEl,
-        { opacity: 0, y: 25 },
-        { opacity: 1, y: 0, duration: 0.95, ease: 'power3.out', clearProps: 'transform' },
-        0.35
-      );
+      }, 0.2);
     }
   };
 

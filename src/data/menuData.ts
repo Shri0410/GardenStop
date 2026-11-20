@@ -18,13 +18,13 @@ export const CAFE_INFO = {
 };
 
 export const CATEGORIES: Category[] = [
-  { id: 'all', name: 'All Items', icon: '🌟', image: '/images/category-all.jpg' },
-  { id: 'pizzas', name: 'Pizzas', icon: '🍕', image: '/images/pizza-corn.jpg' },
-  { id: 'sandwiches', name: 'Sandwiches', icon: '🥪', image: '/images/sandwich-cheese-grill.jpg' },
-  { id: 'burgers', name: 'Burgers', icon: '🍔', image: '/images/burger-cheese.jpg' },
-  { id: 'coffee', name: 'Shakes & Coffee', icon: '🥤', image: '/images/shake-coldcoffee.jpg' },
-  { id: 'fries', name: 'French Fries', icon: '🍟', image: '/images/starter-perifries.jpg' },
-  { id: 'other', name: 'Other Items', icon: '🍜', image: '/images/dessert-brownie.jpg' },
+  { id: 'all', name: 'All Items', icon: '🌟', image: '/images/cat-all.png' },
+  { id: 'pizzas', name: 'Pizzas', icon: '🍕', image: '/images/cat-pizza.png' },
+  { id: 'sandwiches', name: 'Sandwiches', icon: '🥪', image: '/images/cat-sandwich.png' },
+  { id: 'burgers', name: 'Burgers', icon: '🍔', image: '/images/cat-burger.png' },
+  { id: 'coffee', name: 'Shakes & Coffee', icon: '🥤', image: '/images/cat-shakes.png' },
+  { id: 'fries', name: 'French Fries', icon: '🍟', image: '/images/cat-fries.png' },
+  { id: 'other', name: 'Other Items', icon: '🍜', image: '/images/cat-other.png' },
 ];
 
 export const PROMO_CODES: PromoCode[] = [

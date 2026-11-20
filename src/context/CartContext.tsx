@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { FoodItem, CartItem, OrderType, CustomerInfo, PromoCode } from '../types';
 import { CAFE_INFO, PROMO_CODES } from '../data/menuData';
+import { StoreStatus, getStoreStatus } from '../utils/storeHours';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -40,6 +41,9 @@ interface CartContextType {
 
   orderSuccessData: { message: string; waLink: string; total: number; orderType: OrderType } | null;
   setOrderSuccessData: (data: { message: string; waLink: string; total: number; orderType: OrderType } | null) => void;
+
+  storeStatus: StoreStatus;
+  isStoreOpen: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -68,6 +72,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     total: number;
     orderType: OrderType;
   } | null>(null);
+
+  // Store Hours & Ordering Status (11:30 AM to 11:30 PM)
+  const [storeStatus, setStoreStatus] = useState<StoreStatus>(() => getStoreStatus());
+
+  useEffect(() => {
+    const checkStatus = () => setStoreStatus(getStoreStatus());
+    const interval = setInterval(checkStatus, 15000); // Check every 15 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   // Order type
   const [orderType, setOrderType] = useState<OrderType>('delivery');
@@ -138,11 +151,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [customerInfo.name, customerInfo.phone, customerInfo.address, customerInfo.landmark, customerInfo.paymentMethod, customerInfo.locationUrl]);
 
-  const updateCustomerField = <K extends keyof CustomerInfo>(field: K, value: CustomerInfo[K]) => {
+  const updateCustomerField = useCallback(<K extends keyof CustomerInfo>(field: K, value: CustomerInfo[K]) => {
     setCustomerInfo(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
-  const addToCart = (item: FoodItem) => {
+  const addToCart = useCallback((item: FoodItem) => {
+    if (!storeStatus.isOpen) {
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 11:30 PM.');
+      return;
+    }
     setCartItems(prev => {
       const existing = prev.find(ci => ci.item.id === item.id);
       if (existing) {
@@ -152,13 +169,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return [...prev, { item, quantity: 1 }];
     });
-  };
+  }, [storeStatus.isOpen, storeStatus.orderingDisabledMessage]);
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = useCallback((itemId: string) => {
     setCartItems(prev => prev.filter(ci => ci.item.id !== itemId));
-  };
+  }, []);
 
-  const updateQuantity = (itemId: string, delta: number) => {
+  const updateQuantity = useCallback((itemId: string, delta: number) => {
+    if (delta > 0 && !storeStatus.isOpen) {
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 11:30 PM.');
+      return;
+    }
     setCartItems(prev => {
       return prev
         .map(ci => {
@@ -170,54 +191,58 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
         .filter((ci): ci is CartItem => ci !== null);
     });
-  };
+  }, [storeStatus.isOpen, storeStatus.orderingDisabledMessage]);
 
-  const setItemQuantity = (itemId: string, qty: number) => {
+  const setItemQuantity = useCallback((itemId: string, qty: number) => {
     if (qty <= 0) {
-      removeFromCart(itemId);
+      setCartItems(prev => prev.filter(ci => ci.item.id !== itemId));
       return;
     }
     setCartItems(prev =>
       prev.map(ci => (ci.item.id === itemId ? { ...ci, quantity: qty } : ci))
     );
-  };
+  }, []);
 
-  const getItemQuantity = (itemId: string): number => {
+  const getItemQuantity = useCallback((itemId: string): number => {
     const found = cartItems.find(ci => ci.item.id === itemId);
     return found ? found.quantity : 0;
-  };
+  }, [cartItems]);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCartItems([]);
     setAppliedPromo(null);
-  };
+  }, []);
 
-  // Calculations
-  const totalCount = cartItems.reduce((sum, ci) => sum + ci.quantity, 0);
-  const subtotal = cartItems.reduce((sum, ci) => sum + ci.item.price * ci.quantity, 0);
+  // Memoized Calculations
+  const totalCount = useMemo(() => cartItems.reduce((sum, ci) => sum + ci.quantity, 0), [cartItems]);
+  const subtotal = useMemo(() => cartItems.reduce((sum, ci) => sum + ci.item.price * ci.quantity, 0), [cartItems]);
 
   // Delivery fee calculation
-  let deliveryFee = 0;
-  if (orderType === 'delivery') {
-    if (subtotal >= CAFE_INFO.freeDeliveryThreshold) {
-      deliveryFee = 0;
-    } else if (appliedPromo?.freeDelivery) {
-      deliveryFee = 0;
-    } else {
-      deliveryFee = CAFE_INFO.deliveryFee;
+  const deliveryFee = useMemo(() => {
+    if (orderType === 'delivery') {
+      if (subtotal >= CAFE_INFO.freeDeliveryThreshold) {
+        return 0;
+      } else if (appliedPromo?.freeDelivery) {
+        return 0;
+      } else {
+        return CAFE_INFO.deliveryFee;
+      }
     }
-  }
+    return 0;
+  }, [orderType, subtotal, appliedPromo]);
 
   // Discount calculation
-  let discountAmount = 0;
-  if (appliedPromo && appliedPromo.discountPercentage > 0) {
-    discountAmount = (subtotal * appliedPromo.discountPercentage) / 100;
-  }
+  const discountAmount = useMemo(() => {
+    if (appliedPromo && appliedPromo.discountPercentage > 0) {
+      return (subtotal * appliedPromo.discountPercentage) / 100;
+    }
+    return 0;
+  }, [appliedPromo, subtotal]);
 
-  const grandTotal = Math.max(0, subtotal - discountAmount + deliveryFee);
+  const grandTotal = useMemo(() => Math.max(0, subtotal - discountAmount + deliveryFee), [subtotal, discountAmount, deliveryFee]);
 
   // Promo code handling
-  const applyPromo = (codeStr: string) => {
+  const applyPromo = useCallback((codeStr: string) => {
     const clean = codeStr.trim().toUpperCase();
     const promo = PROMO_CODES.find(p => p.code === clean);
 
@@ -239,49 +264,77 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ? 'Free Delivery applied!'
         : `${promo.discountPercentage}% discount applied!`,
     };
-  };
+  }, [subtotal]);
 
-  const removePromo = () => {
+  const removePromo = useCallback(() => {
     setAppliedPromo(null);
-  };
+  }, []);
 
-  const openCart = () => setIsCartOpen(true);
-  const closeCart = () => setIsCartOpen(false);
+  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
+
+  const contextValue = useMemo<CartContextType>(() => ({
+    cartItems,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    setItemQuantity,
+    getItemQuantity,
+    clearCart,
+    totalCount,
+    subtotal,
+    deliveryFee,
+    discountAmount,
+    grandTotal,
+    isCartOpen,
+    openCart,
+    closeCart,
+    orderType,
+    setOrderType,
+    customerInfo,
+    setCustomerInfo,
+    updateCustomerField,
+    appliedPromo,
+    applyPromo,
+    removePromo,
+    selectedDetailItem,
+    setSelectedDetailItem,
+    isInfoModalOpen,
+    setIsInfoModalOpen,
+    orderSuccessData,
+    setOrderSuccessData,
+    storeStatus,
+    isStoreOpen: storeStatus.isOpen,
+  }), [
+    cartItems,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    setItemQuantity,
+    getItemQuantity,
+    clearCart,
+    totalCount,
+    subtotal,
+    deliveryFee,
+    discountAmount,
+    grandTotal,
+    isCartOpen,
+    openCart,
+    closeCart,
+    orderType,
+    customerInfo,
+    updateCustomerField,
+    appliedPromo,
+    applyPromo,
+    removePromo,
+    selectedDetailItem,
+    isInfoModalOpen,
+    orderSuccessData,
+    storeStatus,
+  ]);
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        setItemQuantity,
-        getItemQuantity,
-        clearCart,
-        totalCount,
-        subtotal,
-        deliveryFee,
-        discountAmount,
-        grandTotal,
-        isCartOpen,
-        openCart,
-        closeCart,
-        orderType,
-        setOrderType,
-        customerInfo,
-        setCustomerInfo,
-        updateCustomerField,
-        appliedPromo,
-        applyPromo,
-        removePromo,
-        selectedDetailItem,
-        setSelectedDetailItem,
-        isInfoModalOpen,
-        setIsInfoModalOpen,
-        orderSuccessData,
-        setOrderSuccessData,
-      }}
-    >
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

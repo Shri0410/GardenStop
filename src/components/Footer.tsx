@@ -14,8 +14,9 @@ import {
 } from 'lucide-react';
 import { CAFE_INFO } from '../data/menuData';
 import { Logo } from './Logo';
+import { DeveloperCredit } from './DeveloperCredit';
 
-export const Footer: React.FC = () => {
+export const Footer: React.FC = React.memo(() => {
   return (
     <footer className="relative bg-gradient-to-b from-[#0D1A13] via-[#09130D] to-[#050A07] text-stone-300 pt-12 pb-32 sm:pb-20 mt-14 border-t border-emerald-900/50 overflow-hidden">
       
@@ -117,7 +118,7 @@ export const Footer: React.FC = () => {
                   Monday – Sunday
                 </p>
                 <p className="text-xs text-stone-300 mt-0.5">
-                  9:00 AM – 11:00 PM (Daily)
+                  11:30 AM – 11:30 PM (Daily)
                 </p>
               </div>
             </div>
@@ -211,8 +212,12 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* 4. Bottom Legal & Signature Line */}
-        <div className="border-t border-white/[0.06] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-stone-500">
+        <div className="border-t border-white/[0.06] pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-stone-500">
           <p>© {new Date().getFullYear()} {CAFE_INFO.name}. All rights reserved.</p>
+
+          {/* Premium Developer Signature */}
+          <DeveloperCredit />
+
           <p className="flex items-center gap-1.5 text-stone-400">
             <span>Crafted with</span>
             <Heart className="w-3.5 h-3.5 text-terracotta fill-terracotta animate-pulse" />
@@ -223,4 +228,4 @@ export const Footer: React.FC = () => {
       </div>
     </footer>
   );
-};
+});

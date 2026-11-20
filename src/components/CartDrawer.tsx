@@ -23,6 +23,7 @@ import {
   Loader2,
   CheckCircle2,
   Compass,
+  Clock,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { CAFE_INFO } from "../data/menuData";
@@ -61,6 +62,8 @@ export const CartDrawer: React.FC = () => {
     applyPromo,
     removePromo,
     setOrderSuccessData,
+    isStoreOpen,
+    storeStatus,
   } = useCart();
 
   const [promoInput, setPromoInput] = useState("");
@@ -214,6 +217,10 @@ export const CartDrawer: React.FC = () => {
   };
 
   const handleOrderViaWhatsApp = () => {
+    if (!isStoreOpen) {
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. We accept orders daily between 11:30 AM and 11:30 PM.');
+      return;
+    }
     if (cartItems.length === 0) return;
 
     if (!validateForm()) {
@@ -329,6 +336,19 @@ export const CartDrawer: React.FC = () => {
 
             {/* Drawer Body Scroll Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+              {/* Store Closed Warning Banner */}
+              {!isStoreOpen && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 shadow-xs">
+                  <Clock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-rose-900">Online Ordering Currently Closed</h4>
+                    <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                      Garden Stop accepts online orders daily between <strong>11:30 AM</strong> and <strong>11:30 PM</strong>. Orders cannot be dispatched right now.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* 1. ORDER TYPE SWITCHER TOGGLE */}
               <div>
                 <label className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-2">
@@ -600,15 +620,35 @@ export const CartDrawer: React.FC = () => {
                     </div>
 
                     <div className="relative flex items-center">
-                      <div className="absolute left-3.5 flex items-center gap-1 pointer-events-none text-stone-500 text-xs font-bold border-r border-stone-200 pr-2">
-                        <span>🇮🇳</span>
-                        <span>+91</span>
+                      <div className="absolute left-3.5 flex items-center gap-1.5 pointer-events-none text-stone-700 text-xs font-bold border-r border-stone-200 pr-2.5 whitespace-nowrap shrink-0 select-none">
+                        <svg
+                          className="w-4 h-2.5 rounded-[2px] shadow-2xs shrink-0 overflow-hidden"
+                          viewBox="0 0 640 480"
+                          aria-hidden="true"
+                        >
+                          <path fill="#FF9933" d="M0 0h640v160H0z" />
+                          <path fill="#FFFFFF" d="M0 160h640v160H0z" />
+                          <path fill="#128807" d="M0 320h640v160H0z" />
+                          <circle
+                            cx="320"
+                            cy="240"
+                            r="40"
+                            fill="none"
+                            stroke="#000080"
+                            strokeWidth="6"
+                          />
+                          <circle cx="320" cy="240" r="8" fill="#000080" />
+                        </svg>
+                        <span className="text-stone-600 font-semibold text-[11px]">IN</span>
+                        <span className="text-stone-300 font-normal">|</span>
+                        <span className="text-stone-800 font-bold">+91</span>
                       </div>
                       <input
                         type="tel"
                         value={customerInfo.phone}
                         onChange={(e) => {
-                          updateCustomerField("phone", e.target.value);
+                          const val = e.target.value.replace(/\D/g, "");
+                          updateCustomerField("phone", val);
                           if (validationErrors.phone) {
                             setValidationErrors((prev) => ({
                               ...prev,
@@ -616,8 +656,9 @@ export const CartDrawer: React.FC = () => {
                             }));
                           }
                         }}
+                        maxLength={10}
                         placeholder="Contact Number"
-                        className={`w-full pl-20 pr-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${
+                        className={`w-full pl-[98px] pr-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${
                           validationErrors.phone
                             ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/30"
                             : "border-stone-200 focus:border-forest focus:ring-2 focus:ring-forest/15 focus:bg-white"
@@ -928,14 +969,20 @@ export const CartDrawer: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOrderViaWhatsApp}
-                  disabled={isSubmitting}
-                  className="w-full py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-sm sm:text-base font-bold shadow-glow transition-all flex items-center justify-between gap-3 group"
+                  disabled={isSubmitting || !isStoreOpen}
+                  className={`w-full py-4 px-6 rounded-2xl text-white text-sm sm:text-base font-bold shadow-glow transition-all flex items-center justify-between gap-3 group ${
+                    !isStoreOpen
+                      ? 'bg-stone-500 cursor-not-allowed opacity-90 shadow-none'
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]'
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                      <Send className="w-4 h-4 text-white" />
+                      {!isStoreOpen ? <Clock className="w-4 h-4 text-white" /> : <Send className="w-4 h-4 text-white" />}
                     </div>
-                    <span className="tracking-wide">Order via WhatsApp</span>
+                    <span className="tracking-wide">
+                      {!isStoreOpen ? 'Closed • Orders Open at 11:30 AM' : 'Order via WhatsApp'}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -943,17 +990,20 @@ export const CartDrawer: React.FC = () => {
                       {CAFE_INFO.currency}
                       {grandTotal.toFixed(2)}
                     </span>
-                    <span className="text-lg leading-none transition-transform group-hover:translate-x-1">
-                      ➔
-                    </span>
+                    {isStoreOpen && (
+                      <span className="text-lg leading-none transition-transform group-hover:translate-x-1">
+                        ➔
+                      </span>
+                    )}
                   </div>
                 </button>
 
                 <p className="text-[11px] text-stone-400 text-center mt-2 flex items-center justify-center gap-1.5">
                   <span>🔒</span>
                   <span>
-                    Directly messages cafe owner. No sign-up or card payment
-                    required.
+                    {!isStoreOpen
+                      ? 'Online ordering is currently closed. Kitchen operates daily 11:30 AM to 11:30 PM.'
+                      : 'Directly messages cafe owner. No sign-up or card payment required.'}
                   </span>
                 </p>
               </div>
