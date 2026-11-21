@@ -95,159 +95,93 @@ export const CartDrawer: React.FC = () => {
       return;
     }
 
+    if (!navigator.geolocation) {
+      setLocationStatus({
+        type: "error",
+        message: "Geolocation is not supported by your browser.",
+        details: "Please type your address or select your village below.",
+      });
+      return;
+    }
+
     setIsLocating(true);
     setLocationStatus({
       type: "loading",
-      message: "Detecting your location...",
+      message: "Connecting to phone GPS satellites (takes 3-8s)...",
     });
 
-    // Helper: IP-based Network Geolocation Fallback (Works 100% on Chrome Android even if GPS is denied/unavailable)
-    const tryIpFallback = async (errCode?: number) => {
-      try {
-        const bdcRes = await fetch(
-          "https://api.bigdatacloud.net/data/reverse-geocode-client"
-        );
-        if (bdcRes.ok) {
-          const data = await bdcRes.json();
-          const lat = data.latitude;
-          const lon = data.longitude;
-          const locality =
-            data.locality || data.localityInfo?.administrative?.[3]?.name;
-          const city =
-            data.city || data.localityInfo?.administrative?.[2]?.name;
-          const state = data.principalSubdivision;
-          const postcode = data.postcode;
-
-          const uniqueParts = Array.from(
-            new Set([locality, city, state, postcode].filter(Boolean))
-          );
-          const resolvedAddress =
-            uniqueParts.length > 0
-              ? uniqueParts.join(", ")
-              : `${city || "Nanded"}, ${state || "Maharashtra"}`;
-          const gmapsLink = `https://maps.google.com/?q=${lat},${lon}`;
-
-          updateCustomerField("locationUrl", gmapsLink);
-          updateCustomerField("address", resolvedAddress);
-          if (locality && locality !== city && !customerInfo.landmark) {
-            updateCustomerField("landmark", `Near ${locality}`);
-          }
-
-          setLocationStatus({
-            type: "success",
-            message: `📍 Detected: ${resolvedAddress}`,
-            details:
-              errCode === 1
-                ? "Detected via network IP (Chrome GPS blocked). You can add your street or village name above."
-                : "Detected via network location. You can add your street or village name above.",
-            code: errCode,
-          });
-
-          if (validationErrors.address) {
-            setValidationErrors((prev) => ({ ...prev, address: "" }));
-          }
-          return true;
-        }
-      } catch {
-        // Fallback network request failed
-      }
-      return false;
-    };
-
-    // Helper: watchPosition for Chrome Android reliability (wakes up GPS/FusedLocationProvider)
-    const getPositionViaWatch = (
-      options: PositionOptions
-    ): Promise<GeolocationPosition> => {
+    const getPosition = (): Promise<GeolocationPosition> => {
       return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          const err = new Error("Geolocation not supported");
-          (err as any).code = 2;
-          return reject(err);
-        }
-
-        let watchId: number | null = null;
-        let timer: any = null;
-
-        const cleanup = () => {
-          if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
+        // High accuracy GPS with a realistic mobile timeout (15 seconds)
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          (err) => {
+            // If user explicitly denied permission, fail immediately
+            if (err.code === 1) return reject(err);
+            // If satellite GPS times out, fallback to cell tower / Wi-Fi triangulation
+            navigator.geolocation.getCurrentPosition(
+              resolve,
+              reject,
+              {
+                enableHighAccuracy: false,
+                timeout: 8000,
+                maximumAge: 60000,
+              }
+            );
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 10000,
           }
-          if (timer !== null) {
-            clearTimeout(timer);
-            timer = null;
-          }
-        };
-
-        const timeoutMs = options.timeout || 6000;
-        timer = setTimeout(() => {
-          cleanup();
-          const err = new Error("Location timeout");
-          (err as any).code = 3;
-          reject(err);
-        }, timeoutMs + 500);
-
-        try {
-          watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-              cleanup();
-              resolve(pos);
-            },
-            (err) => {
-              cleanup();
-              reject(err);
-            },
-            options
-          );
-        } catch (e) {
-          cleanup();
-          reject(e);
-        }
+        );
       });
     };
 
-    // Try obtaining GPS coordinates (Pass 1: High Accuracy GPS, Pass 2: Low Accuracy Network)
-    let pos: GeolocationPosition | null = null;
-    let gpsError: any = null;
+    try {
+      const pos = await getPosition();
+      const { latitude, longitude, accuracy } = pos.coords;
+      const gmapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+      updateCustomerField("locationUrl", gmapsLink);
 
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      let resolvedAddress = "";
+      let resolvedLandmark = "";
+
+      // 1. Try OpenStreetMap Nominatim first (Contains exact rural villages like "Gortha"!)
       try {
-        pos = await getPositionViaWatch({
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 30000,
-        });
-      } catch (err: any) {
-        gpsError = err;
-        // If not explicit permission denial, try low accuracy (Wi-Fi/Cell towers)
-        if (err?.code !== 1) {
-          try {
-            pos = await getPositionViaWatch({
-              enableHighAccuracy: false,
-              timeout: 6000,
-              maximumAge: 60000,
-            });
-            gpsError = null;
-          } catch (err2: any) {
-            gpsError = err2;
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address || {};
+          const villageOrArea =
+            addr.village ||
+            addr.hamlet ||
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.road;
+          const taluka = addr.county || addr.town || addr.city_district;
+          const district = addr.state_district || addr.city;
+          const state = addr.state;
+          const postcode = addr.postcode;
+
+          const parts = Array.from(
+            new Set([villageOrArea, taluka, district, state, postcode].filter(Boolean))
+          );
+          if (parts.length > 0) {
+            resolvedAddress = parts.join(", ");
+            if (villageOrArea) {
+              resolvedLandmark = `Near ${villageOrArea}`;
+            }
           }
         }
+      } catch {
+        // Fallback to BigDataCloud
       }
-    } else {
-      gpsError = { code: 2, message: "Geolocation not supported" };
-    }
 
-    // If GPS succeeded
-    if (pos) {
-      try {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const gmapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
-        updateCustomerField("locationUrl", gmapsLink);
-
-        let resolvedAddress = "";
-        let resolvedLandmark = "";
-
-        // Reverse geocoding via BigDataCloud
+      // 2. If Nominatim didn't return, fallback to BigDataCloud
+      if (!resolvedAddress) {
         try {
           const bdcRes = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
@@ -274,101 +208,62 @@ export const CartDrawer: React.FC = () => {
         } catch {
           // fallback
         }
-
-        // Fallback to OpenStreetMap Nominatim
-        if (!resolvedAddress) {
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-              {
-                headers: {
-                  "Accept-Language": "en",
-                },
-              }
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data.address || {};
-              const cleanParts = Array.from(
-                new Set([
-                  addr.road || addr.suburb || addr.neighbourhood,
-                  addr.city_district || addr.suburb,
-                  addr.city || addr.town || addr.village,
-                  addr.postcode,
-                ].filter(Boolean))
-              );
-
-              resolvedAddress =
-                cleanParts.length > 0
-                  ? cleanParts.join(", ")
-                  : data.display_name;
-              if (addr.neighbourhood || addr.suburb || addr.city_district) {
-                resolvedLandmark = `Near ${addr.neighbourhood || addr.suburb || addr.city_district}`;
-              }
-            }
-          } catch {
-            // fallback
-          }
-        }
-
-        if (!resolvedAddress) {
-          resolvedAddress = `Location Pin (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
-        }
-
-        updateCustomerField("address", resolvedAddress);
-        if (resolvedLandmark && !customerInfo.landmark) {
-          updateCustomerField("landmark", resolvedLandmark);
-        }
-
-        const isAccurateGps = typeof accuracy === "number" && accuracy < 250;
-
-        setLocationStatus({
-          type: "success",
-          message: `📍 Detected: ${resolvedAddress}`,
-          details: isAccurateGps
-            ? `🎯 Precise mobile GPS pin locked (±${Math.round(accuracy)}m).`
-            : `📡 Network/Wi-Fi ISP location (~${Math.round((accuracy || 5000) / 1000)} km radius). Note: Laptops route via Nanded district center. For exact delivery to Gortha, please verify your address.`,
-        });
-        setShowLocationHelp(false);
-
-        if (validationErrors.address) {
-          setValidationErrors((prev) => ({ ...prev, address: "" }));
-        }
-        setIsLocating(false);
-        return;
-      } catch {
-        // Fall through to IP fallback
       }
-    }
 
-    // If GPS failed on Chrome (Permission denied, timeout, or unavailable),
-    // AUTOMATICALLY TRY IP FALLBACK so Chrome mobile users are NEVER blocked!
-    const ipSuccess = await tryIpFallback(gpsError?.code);
+      if (!resolvedAddress) {
+        resolvedAddress = `Location Pin (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
+      }
 
-    if (ipSuccess) {
+      updateCustomerField("address", resolvedAddress);
+      if (resolvedLandmark && !customerInfo.landmark) {
+        updateCustomerField("landmark", resolvedLandmark);
+      }
+
+      const isPrecise = typeof accuracy === "number" && accuracy < 250;
+
+      setLocationStatus({
+        type: "success",
+        message: `📍 Detected: ${resolvedAddress}`,
+        details: isPrecise
+          ? `🎯 Exact Mobile GPS Pin locked (±${Math.round(accuracy)}m).`
+          : `📡 Approximate network location (±${Math.round((accuracy || 1000) / 1000)}km). Please verify your village details above.`,
+      });
+      setShowLocationHelp(false);
+
+      if (validationErrors.address) {
+        setValidationErrors((prev) => ({ ...prev, address: "" }));
+      }
+    } catch (err: any) {
+      if (err?.code === 1) {
+        // Permission Denied
+        setLocationStatus({
+          type: "error",
+          code: 1,
+          message: "Location permission blocked in Chrome.",
+          details:
+            "Chrome is blocking GPS for gardenstop.store. Check instructions below or select your village.",
+        });
+        setShowLocationHelp(true);
+      } else if (err?.code === 3) {
+        // Timeout
+        setLocationStatus({
+          type: "error",
+          code: 3,
+          message: "GPS signal timed out.",
+          details:
+            "Could not get satellite lock indoors. Please turn on Phone GPS or select your village below.",
+        });
+      } else {
+        setLocationStatus({
+          type: "error",
+          message: "Could not detect GPS location.",
+          details:
+            "Please ensure Phone Location is turned ON, or select your village below.",
+        });
+      }
+    } finally {
       setIsLocating(false);
-      return;
     }
-
-    // Only if both GPS and IP fallback failed:
-    if (gpsError?.code === 1) {
-      setLocationStatus({
-        type: "error",
-        code: 1,
-        message: "Location permission blocked in Chrome.",
-        details:
-          "Chrome on Android is blocking location for gardenstop.store. Check instructions below or type your address.",
-      });
-      setShowLocationHelp(true);
-    } else {
-      setLocationStatus({
-        type: "error",
-        message: "Could not detect GPS location.",
-        details:
-          "Please type your complete delivery address and landmark manually.",
-      });
-    }
-    setIsLocating(false);
   };
 
   // Lock body scroll when cart is open
@@ -567,11 +462,10 @@ export const CartDrawer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setOrderType("delivery")}
-                    className={`relative py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                      orderType === "delivery"
+                    className={`relative py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${orderType === "delivery"
                         ? "bg-forest text-white shadow-md"
                         : "text-stone-600 hover:text-stone-900"
-                    }`}
+                      }`}
                   >
                     <Bike className="w-4 h-4" />
                     <span>🛵 Home Delivery</span>
@@ -580,11 +474,10 @@ export const CartDrawer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setOrderType("pickup")}
-                    className={`relative py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                      orderType === "pickup"
+                    className={`relative py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${orderType === "pickup"
                         ? "bg-forest text-white shadow-md"
                         : "text-stone-600 hover:text-stone-900"
-                    }`}
+                      }`}
                   >
                     <Store className="w-4 h-4" />
                     <span>🛍️ Takeaway / Pickup</span>
@@ -797,11 +690,10 @@ export const CartDrawer: React.FC = () => {
                           }
                         }}
                         placeholder="Full Name"
-                        className={`w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${
-                          validationErrors.name
+                        className={`w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${validationErrors.name
                             ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/30"
                             : "border-stone-200 focus:border-forest focus:ring-2 focus:ring-forest/15 focus:bg-white"
-                        } text-stone-black placeholder:text-stone-400 focus:outline-none transition shadow-2xs`}
+                          } text-stone-black placeholder:text-stone-400 focus:outline-none transition shadow-2xs`}
                       />
                     </div>
                     {validationErrors.name && (
@@ -867,11 +759,10 @@ export const CartDrawer: React.FC = () => {
                         }}
                         maxLength={10}
                         placeholder="Contact Number"
-                        className={`w-full pl-[98px] pr-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${
-                          validationErrors.phone
+                        className={`w-full pl-[98px] pr-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${validationErrors.phone
                             ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/30"
                             : "border-stone-200 focus:border-forest focus:ring-2 focus:ring-forest/15 focus:bg-white"
-                        } text-stone-black placeholder:text-stone-400 focus:outline-none transition shadow-2xs font-mono`}
+                          } text-stone-black placeholder:text-stone-400 focus:outline-none transition shadow-2xs font-mono`}
                       />
                     </div>
                     {validationErrors.phone && (
@@ -918,6 +809,107 @@ export const CartDrawer: React.FC = () => {
                           </button>
                         </div>
 
+                        {/* 1-Tap Quick Area Selector */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider shrink-0">
+                            Quick Select:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateCustomerField(
+                                "address",
+                                "At Post Gortha, Taluka Umri, Dist. Nanded - 431807"
+                              );
+                              if (!customerInfo.landmark) {
+                                updateCustomerField(
+                                  "landmark",
+                                  "Near Buddha Vihar, Gortha"
+                                );
+                              }
+                              updateCustomerField(
+                                "locationUrl",
+                                "https://maps.google.com/?q=19.05356,77.62404"
+                              );
+                              setLocationStatus({
+                                type: "success",
+                                message: "📍 Selected: At Post Gortha, Umri (Nanded)",
+                                details: "Google Maps pin for Gortha attached to your order.",
+                              });
+                              if (validationErrors.address) {
+                                setValidationErrors((prev) => ({
+                                  ...prev,
+                                  address: "",
+                                }));
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 text-[11px] font-bold border border-emerald-300 transition active:scale-95 shrink-0 cursor-pointer shadow-2xs"
+                          >
+                            <span>🏡 At Post Gortha</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateCustomerField(
+                                "address",
+                                "Peth Umri, Dist. Nanded - 431807"
+                              );
+                              if (!customerInfo.landmark) {
+                                updateCustomerField(
+                                  "landmark",
+                                  "Near Shivaji Maharaj Putala, Umri"
+                                );
+                              }
+                              updateCustomerField(
+                                "locationUrl",
+                                "https://maps.app.goo.gl/bbk6gcBJLRMBiqCZ9"
+                              );
+                              setLocationStatus({
+                                type: "success",
+                                message: "📍 Selected: Peth Umri (Nanded)",
+                                details: "Google Maps pin for Umri attached to your order.",
+                              });
+                              if (validationErrors.address) {
+                                setValidationErrors((prev) => ({
+                                  ...prev,
+                                  address: "",
+                                }));
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-bold border border-stone-300/80 transition active:scale-95 shrink-0 cursor-pointer shadow-2xs"
+                          >
+                            <span>📍 Peth Umri</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateCustomerField(
+                                "address",
+                                "Nanded, Maharashtra"
+                              );
+                              updateCustomerField(
+                                "locationUrl",
+                                "https://maps.google.com/?q=Nanded,Maharashtra"
+                              );
+                              setLocationStatus({
+                                type: "success",
+                                message: "📍 Selected: Nanded City",
+                              });
+                              if (validationErrors.address) {
+                                setValidationErrors((prev) => ({
+                                  ...prev,
+                                  address: "",
+                                }));
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-bold border border-stone-300/80 transition active:scale-95 shrink-0 cursor-pointer shadow-2xs"
+                          >
+                            <span>📍 Nanded City</span>
+                          </button>
+                        </div>
+
                         <div className="relative">
                           <textarea
                             value={customerInfo.address}
@@ -932,17 +924,16 @@ export const CartDrawer: React.FC = () => {
                             }}
                             placeholder=""
                             rows={2}
-                            className={`w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${
-                              validationErrors.address
+                            className={`w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm bg-stone-50/80 border ${validationErrors.address
                                 ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/30"
                                 : "border-stone-200 focus:border-forest focus:ring-2 focus:ring-forest/15 focus:bg-white"
-                            } text-stone-black placeholder:text-stone-400 focus:outline-none resize-none transition shadow-2xs`}
+                              } text-stone-black placeholder:text-stone-400 focus:outline-none resize-none transition shadow-2xs`}
                           />
                         </div>
 
                         <div className="flex items-center justify-between pt-0.5">
                           <span className="text-[10px] text-stone-500">
-                            💡 Tip: For village/town delivery (e.g. <em>At Post Gortha</em>), you can type your village & landmark directly, or share Live Location on WhatsApp.
+                            💡 Tip: For village/town delivery, you can type your village & landmark directly, or share Live Location on WhatsApp.
                           </span>
                         </div>
 
@@ -1298,11 +1289,10 @@ export const CartDrawer: React.FC = () => {
                   type="button"
                   onClick={handleOrderViaWhatsApp}
                   disabled={isSubmitting || !isStoreOpen}
-                  className={`w-full py-4 px-6 rounded-2xl text-white text-sm sm:text-base font-bold shadow-glow transition-all flex items-center justify-between gap-3 group ${
-                    !isStoreOpen
+                  className={`w-full py-4 px-6 rounded-2xl text-white text-sm sm:text-base font-bold shadow-glow transition-all flex items-center justify-between gap-3 group ${!isStoreOpen
                       ? 'bg-stone-500 cursor-not-allowed opacity-90 shadow-none'
                       : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
