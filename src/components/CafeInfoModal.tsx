@@ -92,7 +92,7 @@ export const CafeInfoModal: React.FC = () => {
                 <div>
                   <h4 className="text-xs font-bold text-forest uppercase tracking-wider">Kitchen Timings</h4>
                   <p className="text-xs text-stone-700 mt-0.5 font-medium">
-                    11:30 AM – 11:30 PM (Daily)
+                    11:30 AM – 10:30 PM (Daily)
                   </p>
                   <p className={`text-[11px] font-semibold mt-0.5 ${isStoreOpen ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {isStoreOpen ? '● Currently Accepting Orders' : '● Currently Closed (Opens at 11:30 AM)'}

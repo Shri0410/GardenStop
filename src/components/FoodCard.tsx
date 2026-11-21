@@ -115,10 +115,10 @@ export const FoodCard: React.FC<FoodCardProps> = React.memo(({ item }) => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                alert('Garden Stop is currently closed. Online ordering is available daily between 11:30 AM and 11:30 PM.');
+                alert('Garden Stop is currently closed. Online ordering is available daily between 11:30 AM and 10:30 PM.');
               }}
               className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-500 text-xs font-bold transition flex items-center gap-1 border border-stone-200 shadow-2xs active:scale-95"
-              title="Kitchen Closed (11:30 AM - 11:30 PM)"
+              title="Kitchen Closed (11:30 AM - 10:30 PM)"
             >
               <Clock className="w-3 h-3 text-stone-400" />
               <span>Closed</span>

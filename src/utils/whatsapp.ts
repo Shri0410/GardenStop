@@ -49,8 +49,9 @@ export function buildWhatsAppOrderMessage({
       const queryAddress = `${customer.address.trim()}${customer.landmark ? ', ' + customer.landmark.trim() : ''}`;
       message += `📍 *Location Link:* https://maps.google.com/?q=${encodeURIComponent(queryAddress)}\n`;
     }
+    message += `📲 _(Customer can also share Live Location in this chat)_\n`;
   } else {
-    message += `*Pickup At:* Garden Stop Cafe Counter (Shop 4, Botanical Pavilion)\n`;
+    message += `*Pickup At:* ${CAFE_INFO.name} (${CAFE_INFO.address}, ${CAFE_INFO.landmark})\n`;
   }
 
   message += `\n📋 *ORDER ITEMS:*\n${itemsText}\n`;

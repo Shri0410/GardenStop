@@ -41,7 +41,7 @@ export const Header: React.FC = React.memo(() => {
           {isStoreOpen ? (
             <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-300/60 items-center gap-1.5 shadow-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-              Open (11:30 AM - 11:30 PM)
+              Open (11:30 AM - 10:30 PM)
             </span>
           ) : (
             <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 items-center gap-1.5 shadow-xs">
@@ -97,7 +97,7 @@ export const Header: React.FC = React.memo(() => {
         <p className="text-[11px] text-stone-600 flex items-center justify-center gap-2">
           <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-emerald-500' : 'bg-rose-500'} inline-block`}></span>
           <span className={`font-semibold ${isStoreOpen ? 'text-forest' : 'text-rose-800'}`}>
-            {isStoreOpen ? 'Open Now • Accepting Orders (11:30 AM - 11:30 PM)' : 'Closed • Online Orders Open at 11:30 AM'}
+            {isStoreOpen ? 'Open Now • Accepting Orders (11:30 AM - 10:30 PM)' : 'Closed • Online Orders Open at 11:30 AM'}
           </span>
           <span className="text-stone-300">•</span>
           <span className="text-stone-500">Free delivery over {CAFE_INFO.currency}{CAFE_INFO.freeDeliveryThreshold.toFixed(0)}</span>

@@ -43,7 +43,7 @@ export const CelebrationBookingModal: React.FC<
   const TIME_SLOTS = [
     "Afternoon (1:00 PM - 4:00 PM)",
     "Evening Party (6:00 PM - 9:00 PM)",
-    "Night Celebration (8:30 PM - 11:00 PM)",
+    "Night Celebration (8:30 PM - 10:30 PM)",
     "Custom Timing",
   ];
 

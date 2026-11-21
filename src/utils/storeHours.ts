@@ -11,11 +11,11 @@ export interface StoreStatus {
 export const STORE_HOURS = {
   openHour: 11,
   openMinute: 30, // 11:30 AM
-  closeHour: 23,
-  closeMinute: 30, // 11:30 PM
+  closeHour: 22,
+  closeMinute: 30, // 10:30 PM
   openTimeStr: '11:30 AM',
-  closeTimeStr: '11:30 PM',
-  timings: '11:30 AM - 11:30 PM (Daily)',
+  closeTimeStr: '10:30 PM',
+  timings: '11:30 AM - 10:30 PM (Daily)',
 };
 
 export function getStoreStatus(): StoreStatus {
@@ -30,7 +30,7 @@ export function getStoreStatus(): StoreStatus {
         closeTimeStr: STORE_HOURS.closeTimeStr,
         timings: STORE_HOURS.timings,
         statusBadge: 'Open Now',
-        statusMessage: 'Open Now • Accepting orders until 11:30 PM',
+        statusMessage: 'Open Now • Accepting orders until 10:30 PM',
         orderingDisabledMessage: '',
       };
     }
@@ -41,8 +41,8 @@ export function getStoreStatus(): StoreStatus {
         closeTimeStr: STORE_HOURS.closeTimeStr,
         timings: STORE_HOURS.timings,
         statusBadge: 'Closed',
-        statusMessage: 'Currently Closed • Ordering available 11:30 AM - 11:30 PM',
-        orderingDisabledMessage: 'Garden Stop is currently closed. Online ordering is available daily from 11:30 AM to 11:30 PM.',
+        statusMessage: 'Currently Closed • Ordering available 11:30 AM - 10:30 PM',
+        orderingDisabledMessage: 'Garden Stop is currently closed. Online ordering is available daily from 11:30 AM to 10:30 PM.',
       };
     }
   }
@@ -65,7 +65,7 @@ export function getStoreStatus(): StoreStatus {
 
   const currentMinutes = hours * 60 + minutes;
   const openMinutes = STORE_HOURS.openHour * 60 + STORE_HOURS.openMinute; // 11:30 AM = 690 min
-  const closeMinutes = STORE_HOURS.closeHour * 60 + STORE_HOURS.closeMinute; // 11:30 PM = 1410 min
+  const closeMinutes = STORE_HOURS.closeHour * 60 + STORE_HOURS.closeMinute; // 10:30 PM = 1350 min
 
   const isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
 
@@ -76,10 +76,10 @@ export function getStoreStatus(): StoreStatus {
     timings: STORE_HOURS.timings,
     statusBadge: isOpen ? 'Open' : 'Closed',
     statusMessage: isOpen
-      ? 'Open Now • 100% Pure Veg • 11:30 AM - 11:30 PM'
+      ? 'Open Now • 100% Pure Veg • 11:30 AM - 10:30 PM'
       : 'Currently Closed • Ordering Opens at 11:30 AM',
     orderingDisabledMessage: isOpen
       ? ''
-      : 'Garden Stop is currently closed. Online ordering is only available daily between 11:30 AM and 11:30 PM.',
+      : 'Garden Stop is currently closed. Online ordering is only available daily between 11:30 AM and 10:30 PM.',
   };
 }

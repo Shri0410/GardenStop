@@ -184,7 +184,7 @@ export const FoodDetailModal: React.FC = () => {
               {!isStoreOpen && (
                 <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
                   <Clock className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Online ordering is closed. Kitchen operates daily <strong>11:30 AM to 11:30 PM</strong>.</span>
+                  <span>Online ordering is closed. Kitchen operates daily <strong>11:30 AM to 10:30 PM</strong>.</span>
                 </div>
               )}
 

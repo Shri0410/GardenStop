@@ -73,7 +73,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     orderType: OrderType;
   } | null>(null);
 
-  // Store Hours & Ordering Status (11:30 AM to 11:30 PM)
+  // Store Hours & Ordering Status (11:30 AM to 10:30 PM)
   const [storeStatus, setStoreStatus] = useState<StoreStatus>(() => getStoreStatus());
 
   useEffect(() => {
@@ -157,7 +157,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addToCart = useCallback((item: FoodItem) => {
     if (!storeStatus.isOpen) {
-      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 11:30 PM.');
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 10:30 PM.');
       return;
     }
     setCartItems(prev => {
@@ -177,7 +177,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateQuantity = useCallback((itemId: string, delta: number) => {
     if (delta > 0 && !storeStatus.isOpen) {
-      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 11:30 PM.');
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. Orders accepted between 11:30 AM and 10:30 PM.');
       return;
     }
     setCartItems(prev => {

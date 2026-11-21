@@ -118,7 +118,7 @@ export const Footer: React.FC = React.memo(() => {
                   Monday – Sunday
                 </p>
                 <p className="text-xs text-stone-300 mt-0.5">
-                  11:30 AM – 11:30 PM (Daily)
+                  11:30 AM – 10:30 PM (Daily)
                 </p>
               </div>
             </div>

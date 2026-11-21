@@ -19,6 +19,8 @@ import {
   AlertCircle,
   Sparkles,
   ChevronDown,
+  ChevronUp,
+  ExternalLink,
   LocateFixed,
   Loader2,
   CheckCircle2,
@@ -73,93 +75,300 @@ export const CartDrawer: React.FC = () => {
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [locationStatus, setLocationStatus] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<{
+    type: "loading" | "success" | "error";
+    message: string;
+    details?: string;
+    code?: number;
+  } | null>(null);
+  const [showLocationHelp, setShowLocationHelp] = useState(false);
 
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus("Geolocation is not supported by your browser.");
+  const handleDetectLocation = async () => {
+    // 0. Ensure Secure Context on live domains for Chrome
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "http:" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      window.location.protocol = "https:";
       return;
     }
 
     setIsLocating(true);
-    setLocationStatus("Locating your GPS coordinates...");
+    setLocationStatus({
+      type: "loading",
+      message: "Detecting your location...",
+    });
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const gmapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
-        updateCustomerField("locationUrl", gmapsLink);
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            {
-              headers: {
-                "Accept-Language": "en",
-              },
-            },
+    // Helper: IP-based Network Geolocation Fallback (Works 100% on Chrome Android even if GPS is denied/unavailable)
+    const tryIpFallback = async (errCode?: number) => {
+      try {
+        const bdcRes = await fetch(
+          "https://api.bigdatacloud.net/data/reverse-geocode-client"
+        );
+        if (bdcRes.ok) {
+          const data = await bdcRes.json();
+          const lat = data.latitude;
+          const lon = data.longitude;
+          const locality =
+            data.locality || data.localityInfo?.administrative?.[3]?.name;
+          const city =
+            data.city || data.localityInfo?.administrative?.[2]?.name;
+          const state = data.principalSubdivision;
+          const postcode = data.postcode;
+
+          const uniqueParts = Array.from(
+            new Set([locality, city, state, postcode].filter(Boolean))
           );
-          if (res.ok) {
-            const data = await res.json();
-            const addr = data.address || {};
-            const cleanParts = [
-              addr.road || addr.suburb || addr.neighbourhood,
-              addr.city_district || addr.suburb,
-              addr.city || addr.town || addr.village,
-              addr.postcode,
-            ].filter(Boolean);
+          const resolvedAddress =
+            uniqueParts.length > 0
+              ? uniqueParts.join(", ")
+              : `${city || "Nanded"}, ${state || "Maharashtra"}`;
+          const gmapsLink = `https://maps.google.com/?q=${lat},${lon}`;
 
-            const resolvedAddress =
-              cleanParts.length > 0 ? cleanParts.join(", ") : data.display_name;
-            updateCustomerField("address", resolvedAddress);
-            if (addr.neighbourhood || addr.suburb || addr.city_district) {
-              updateCustomerField(
-                "landmark",
-                `Near ${addr.neighbourhood || addr.suburb || addr.city_district}`,
-              );
-            }
-            setLocationStatus(`📍 Detected: ${resolvedAddress}`);
-          } else {
-            updateCustomerField(
-              "address",
-              `GPS Pin: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-            );
-            setLocationStatus(
-              `📍 GPS Pin: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-            );
+          updateCustomerField("locationUrl", gmapsLink);
+          updateCustomerField("address", resolvedAddress);
+          if (locality && locality !== city && !customerInfo.landmark) {
+            updateCustomerField("landmark", `Near ${locality}`);
           }
-        } catch {
-          updateCustomerField(
-            "address",
-            `GPS Pin: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-          );
-          setLocationStatus(
-            `📍 GPS Pin: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-          );
-        } finally {
-          setIsLocating(false);
+
+          setLocationStatus({
+            type: "success",
+            message: `📍 Detected: ${resolvedAddress}`,
+            details:
+              errCode === 1
+                ? "Detected via network IP (Chrome GPS blocked). You can add your street or village name above."
+                : "Detected via network location. You can add your street or village name above.",
+            code: errCode,
+          });
+
           if (validationErrors.address) {
             setValidationErrors((prev) => ({ ...prev, address: "" }));
           }
+          return true;
         }
-      },
-      (err) => {
+      } catch {
+        // Fallback network request failed
+      }
+      return false;
+    };
+
+    // Helper: watchPosition for Chrome Android reliability (wakes up GPS/FusedLocationProvider)
+    const getPositionViaWatch = (
+      options: PositionOptions
+    ): Promise<GeolocationPosition> => {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          const err = new Error("Geolocation not supported");
+          (err as any).code = 2;
+          return reject(err);
+        }
+
+        let watchId: number | null = null;
+        let timer: any = null;
+
+        const cleanup = () => {
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+          }
+          if (timer !== null) {
+            clearTimeout(timer);
+            timer = null;
+          }
+        };
+
+        const timeoutMs = options.timeout || 6000;
+        timer = setTimeout(() => {
+          cleanup();
+          const err = new Error("Location timeout");
+          (err as any).code = 3;
+          reject(err);
+        }, timeoutMs + 500);
+
+        try {
+          watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              cleanup();
+              resolve(pos);
+            },
+            (err) => {
+              cleanup();
+              reject(err);
+            },
+            options
+          );
+        } catch (e) {
+          cleanup();
+          reject(e);
+        }
+      });
+    };
+
+    // Try obtaining GPS coordinates (Pass 1: High Accuracy GPS, Pass 2: Low Accuracy Network)
+    let pos: GeolocationPosition | null = null;
+    let gpsError: any = null;
+
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      try {
+        pos = await getPositionViaWatch({
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 30000,
+        });
+      } catch (err: any) {
+        gpsError = err;
+        // If not explicit permission denial, try low accuracy (Wi-Fi/Cell towers)
+        if (err?.code !== 1) {
+          try {
+            pos = await getPositionViaWatch({
+              enableHighAccuracy: false,
+              timeout: 6000,
+              maximumAge: 60000,
+            });
+            gpsError = null;
+          } catch (err2: any) {
+            gpsError = err2;
+          }
+        }
+      }
+    } else {
+      gpsError = { code: 2, message: "Geolocation not supported" };
+    }
+
+    // If GPS succeeded
+    if (pos) {
+      try {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const gmapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+        updateCustomerField("locationUrl", gmapsLink);
+
+        let resolvedAddress = "";
+        let resolvedLandmark = "";
+
+        // Reverse geocoding via BigDataCloud
+        try {
+          const bdcRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          );
+          if (bdcRes.ok) {
+            const data = await bdcRes.json();
+            const locality =
+              data.locality || data.localityInfo?.administrative?.[3]?.name;
+            const city =
+              data.city || data.localityInfo?.administrative?.[2]?.name;
+            const state = data.principalSubdivision;
+            const postcode = data.postcode;
+
+            const uniqueParts = Array.from(
+              new Set([locality, city, state, postcode].filter(Boolean))
+            );
+            if (uniqueParts.length > 0) {
+              resolvedAddress = uniqueParts.join(", ");
+              if (locality && locality !== city) {
+                resolvedLandmark = `Near ${locality}`;
+              }
+            }
+          }
+        } catch {
+          // fallback
+        }
+
+        // Fallback to OpenStreetMap Nominatim
+        if (!resolvedAddress) {
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+              {
+                headers: {
+                  "Accept-Language": "en",
+                },
+              }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const addr = data.address || {};
+              const cleanParts = Array.from(
+                new Set([
+                  addr.road || addr.suburb || addr.neighbourhood,
+                  addr.city_district || addr.suburb,
+                  addr.city || addr.town || addr.village,
+                  addr.postcode,
+                ].filter(Boolean))
+              );
+
+              resolvedAddress =
+                cleanParts.length > 0
+                  ? cleanParts.join(", ")
+                  : data.display_name;
+              if (addr.neighbourhood || addr.suburb || addr.city_district) {
+                resolvedLandmark = `Near ${addr.neighbourhood || addr.suburb || addr.city_district}`;
+              }
+            }
+          } catch {
+            // fallback
+          }
+        }
+
+        if (!resolvedAddress) {
+          resolvedAddress = `Location Pin (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
+        }
+
+        updateCustomerField("address", resolvedAddress);
+        if (resolvedLandmark && !customerInfo.landmark) {
+          updateCustomerField("landmark", resolvedLandmark);
+        }
+
+        const isAccurateGps = typeof accuracy === "number" && accuracy < 250;
+
+        setLocationStatus({
+          type: "success",
+          message: `📍 Detected: ${resolvedAddress}`,
+          details: isAccurateGps
+            ? `🎯 Precise mobile GPS pin locked (±${Math.round(accuracy)}m).`
+            : `📡 Network/Wi-Fi ISP location (~${Math.round((accuracy || 5000) / 1000)} km radius). Note: Laptops route via Nanded district center. For exact delivery to Gortha, please verify your address.`,
+        });
+        setShowLocationHelp(false);
+
+        if (validationErrors.address) {
+          setValidationErrors((prev) => ({ ...prev, address: "" }));
+        }
         setIsLocating(false);
-        if (err.code === 1) {
-          setLocationStatus(
-            "⚠️ Location permission denied. Please type address.",
-          );
-        } else {
-          setLocationStatus(
-            "⚠️ GPS signal weak. Please enter address manually.",
-          );
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
-      },
-    );
+        return;
+      } catch {
+        // Fall through to IP fallback
+      }
+    }
+
+    // If GPS failed on Chrome (Permission denied, timeout, or unavailable),
+    // AUTOMATICALLY TRY IP FALLBACK so Chrome mobile users are NEVER blocked!
+    const ipSuccess = await tryIpFallback(gpsError?.code);
+
+    if (ipSuccess) {
+      setIsLocating(false);
+      return;
+    }
+
+    // Only if both GPS and IP fallback failed:
+    if (gpsError?.code === 1) {
+      setLocationStatus({
+        type: "error",
+        code: 1,
+        message: "Location permission blocked in Chrome.",
+        details:
+          "Chrome on Android is blocking location for gardenstop.store. Check instructions below or type your address.",
+      });
+      setShowLocationHelp(true);
+    } else {
+      setLocationStatus({
+        type: "error",
+        message: "Could not detect GPS location.",
+        details:
+          "Please type your complete delivery address and landmark manually.",
+      });
+    }
+    setIsLocating(false);
   };
 
   // Lock body scroll when cart is open
@@ -218,7 +427,7 @@ export const CartDrawer: React.FC = () => {
 
   const handleOrderViaWhatsApp = () => {
     if (!isStoreOpen) {
-      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. We accept orders daily between 11:30 AM and 11:30 PM.');
+      alert(storeStatus.orderingDisabledMessage || 'Garden Stop is currently closed. We accept orders daily between 11:30 AM and 10:30 PM.');
       return;
     }
     if (cartItems.length === 0) return;
@@ -343,7 +552,7 @@ export const CartDrawer: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-bold text-rose-900">Online Ordering Currently Closed</h4>
                     <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
-                      Garden Stop accepts online orders daily between <strong>11:30 AM</strong> and <strong>11:30 PM</strong>. Orders cannot be dispatched right now.
+                      Garden Stop accepts online orders daily between <strong>11:30 AM</strong> and <strong>10:30 PM</strong>. Orders cannot be dispatched right now.
                     </p>
                   </div>
                 </div>
@@ -731,36 +940,155 @@ export const CartDrawer: React.FC = () => {
                           />
                         </div>
 
-                        {/* Location Status Chip */}
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-[10px] text-stone-500">
+                            💡 Tip: For village/town delivery (e.g. <em>At Post Gortha</em>), you can type your village & landmark directly, or share Live Location on WhatsApp.
+                          </span>
+                        </div>
+
+                        {/* Location Status Alert / Chip */}
                         {locationStatus && (
-                          <div className="text-[11px] text-emerald-800 bg-emerald-50/90 border border-emerald-200/90 px-3 py-1.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                              <span className="truncate">{locationStatus}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {customerInfo.locationUrl && (
-                                <a
-                                  href={customerInfo.locationUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] text-emerald-700 underline font-semibold hover:text-emerald-900"
-                                >
-                                  View Pin
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setLocationStatus(null);
-                                  updateCustomerField("locationUrl", "");
-                                }}
-                                className="text-[10px] text-stone-400 hover:text-stone-600 font-bold shrink-0 ml-0.5"
-                                title="Clear location"
-                              >
-                                ✕
-                              </button>
-                            </div>
+                          <div className="mt-2">
+                            {locationStatus.type === "loading" && (
+                              <div className="text-[11px] text-stone-700 bg-stone-100 border border-stone-200 px-3 py-2 rounded-xl flex items-center gap-2 shadow-2xs">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-forest shrink-0" />
+                                <span className="font-medium">{locationStatus.message}</span>
+                              </div>
+                            )}
+
+                            {locationStatus.type === "success" && (
+                              <div className="space-y-1">
+                                <div className="text-[11px] text-emerald-800 bg-emerald-50/95 border border-emerald-200 px-3 py-2 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                                    <span className="font-semibold truncate">{locationStatus.message}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {customerInfo.locationUrl && (
+                                      <a
+                                        href={customerInfo.locationUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[10px] text-emerald-700 underline font-semibold hover:text-emerald-900 inline-flex items-center gap-0.5"
+                                      >
+                                        <span>View Pin</span>
+                                        <ExternalLink className="w-2.5 h-2.5" />
+                                      </a>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setLocationStatus(null);
+                                        updateCustomerField("locationUrl", "");
+                                      }}
+                                      className="text-[11px] text-stone-400 hover:text-stone-700 font-bold shrink-0 ml-0.5 p-0.5"
+                                      title="Clear location"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                                {locationStatus.details && (
+                                  <p className="text-[10px] text-stone-600 px-1 leading-snug">
+                                    {locationStatus.details}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {locationStatus.type === "error" && (
+                              <div className="text-[11px] text-amber-900 bg-amber-50/95 border border-amber-300/80 px-3 py-2.5 rounded-xl space-y-1.5 shadow-2xs">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                                    <span>{locationStatus.message}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLocationStatus(null)}
+                                    className="text-[11px] text-stone-400 hover:text-stone-700 font-bold shrink-0 p-0.5"
+                                    title="Dismiss"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+
+                                {locationStatus.details && (
+                                  <p className="text-[11px] text-stone-700 leading-snug">
+                                    {locationStatus.details}
+                                  </p>
+                                )}
+
+                                {locationStatus.code === 1 && (
+                                  <div className="pt-1.5 border-t border-amber-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowLocationHelp((prev) => !prev)}
+                                      className="text-[11px] font-bold text-emerald-800 hover:text-emerald-900 flex items-center gap-1 underline cursor-pointer"
+                                    >
+                                      <span>
+                                        {showLocationHelp
+                                          ? "Hide Instructions"
+                                          : "How to allow location in Safari / Chrome"}
+                                      </span>
+                                      {showLocationHelp ? (
+                                        <ChevronUp className="w-3 h-3" />
+                                      ) : (
+                                        <ChevronDown className="w-3 h-3" />
+                                      )}
+                                    </button>
+
+                                    {showLocationHelp && (
+                                      <div className="mt-2 p-2.5 bg-white/95 rounded-xl text-[11px] text-stone-700 space-y-2 border border-amber-200/70 shadow-2xs">
+                                        <div>
+                                          <p className="font-bold text-stone-900 flex items-center gap-1">
+                                            <span>📱 On iPhone (Safari):</span>
+                                          </p>
+                                          <ol className="list-decimal list-inside space-y-1 text-stone-600 mt-1 pl-1">
+                                            <li>
+                                              Tap the <strong>aA</strong> icon on the left of the Safari address bar (top or bottom).
+                                            </li>
+                                            <li>
+                                              Tap <strong>Website Settings</strong>.
+                                            </li>
+                                            <li>
+                                              Change <strong>Location</strong> from <em>Deny</em> to <strong>Allow</strong>.
+                                            </li>
+                                            <li>
+                                              Tap <strong>Detect Location</strong> again.
+                                            </li>
+                                          </ol>
+                                          <p className="text-[10px] text-stone-500 mt-1 pl-1">
+                                            Note: Also check iPhone <em>Settings &gt; Privacy &amp; Security &gt; Location Services</em> is turned ON.
+                                          </p>
+                                        </div>
+
+                                        <div className="border-t border-stone-200/80 pt-2">
+                                          <p className="font-bold text-stone-900 flex items-center gap-1">
+                                            <span>🤖 On Android (Chrome):</span>
+                                          </p>
+                                          <ol className="list-decimal list-inside space-y-1 text-stone-600 mt-1 pl-1">
+                                            <li>
+                                              Tap the <strong>tune / lock icon</strong> next to the address in the URL bar.
+                                            </li>
+                                            <li>
+                                              Tap <strong>Permissions</strong> &gt; <strong>Location</strong> &gt; <strong>Allow</strong>.
+                                            </li>
+                                            <li>
+                                              Tap <strong>Detect Location</strong> again.
+                                            </li>
+                                          </ol>
+                                        </div>
+
+                                        <div className="bg-emerald-50 text-emerald-900 p-2 rounded-lg text-[10px] font-medium border border-emerald-200/60">
+                                          💡 You can always type your delivery address and landmark manually in the box above — our delivery team will deliver it directly to you!
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1002,7 +1330,7 @@ export const CartDrawer: React.FC = () => {
                   <span>🔒</span>
                   <span>
                     {!isStoreOpen
-                      ? 'Online ordering is currently closed. Kitchen operates daily 11:30 AM to 11:30 PM.'
+                      ? 'Online ordering is currently closed. Kitchen operates daily 11:30 AM to 10:30 PM.'
                       : 'Directly messages cafe owner. No sign-up or card payment required.'}
                   </span>
                 </p>
